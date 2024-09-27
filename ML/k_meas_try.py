@@ -14,7 +14,7 @@ def k_means_with_reg(X, k, lambda_reg = 0.1, max_iter = 100, eps = 1e-4):
         for j in range(k):
             if np.any(labels == j):
                 # 计算新的质心，同时加入 L2 正则化
-                new_centroids[j] = (X[labels == j].mean(axis=0) + lambda_reg * centroids[j]) / (1 + lambda_reg)
+                new_centroids[j] = X[labels == j].mean(axis=0)
             else:
                 new_centroids[j] = X[np.random.choice(X.shape[0])]
                 
