@@ -1,31 +1,42 @@
-#include <opencv2/opencv.hpp>  
-#include <vector>  
-#include <algorithm>  
-  
-void nms(std::vector<cv::Rect>& input_boxes, float threshold, std::vector<cv::Rect>& output_boxes)  
-{  
-    std::sort(input_boxes.begin(), input_boxes.end(), [](const cv::Rect& a, const cv::Rect& b)  
-    {  
-        return a.area() > b.area();  
-    });  
-  
-    while (input_boxes.size() > 0)  
-    {  
-        cv::Rect box1 = input_boxes[0];  
-        output_boxes.push_back(box1);  
-  
-        input_boxes.erase(input_boxes.begin());  
-  
-        for (auto it = input_boxes.begin(); it != input_boxes.end(); )  
-        {  
-            cv::Rect box2 = *it;  
-  
-            float iou = (box1 & box2).area() / (float)(box1.area() + box2.area() - (box1 & box2).area());  
-  
-            if (iou > threshold)  
-                it = input_boxes.erase(it);  
-            else  
-                ++it;  
-        }  
-    }  
-}  
+#include <vector>
+#include <algorithm>
+
+float iou(const std::vector<float>& boxA, const std::vector<float>& boxB)
+{
+    // The format of box is [top_left_x, top_left_y, bottom_right_x, bottom_right_y]
+    const float eps = 1e-6;
+    float iou = 0.f;
+    float areaA = (boxA[2] - boxA[0]) * (boxA[3] - boxA[1]);
+    float areaB = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1]);
+    float x1 = std::max(boxA[0], boxB[0]);
+    float y1 = std::max(boxA[1], boxB[1]);
+    float x2 = std::min(boxA[2], boxB[2]);
+    float y2 = std::min(boxA[3], boxB[3]);
+    float w = std::max(0.f, x2 - x1);
+    float h = std::max(0.f, y2 - y1);
+    float inter = w * h;
+    iou = inter / (areaA + areaB - inter + eps);
+    return iou;
+}
+
+void nms(std::vector<std::vector<float>>& boxes, const float iou_threshold)
+{
+    // The format of boxes is [[top_left_x, top_left_y, bottom_right_x, bottom_right_y, score, class_id], ...]
+    // Sorting "score + class_id" is to ensure that the boxes with the same class_id are grouped together and sorted by score
+    std::sort(boxes.begin(), boxes.end(), [](const std::vector<float>& boxA, const std::vector<float>& boxB) { return boxA[4]> boxB[4];});
+    for (int i = 0; i < boxes.size(); ++i)
+    {
+        if (boxes[i][4] == 0.f)
+        {
+            continue;
+        }
+        for (int j = i + 1; j < boxes.size(); ++j)
+        {
+            if (iou(boxes[i], boxes[j]) > iou_threshold)
+            {
+                boxes[j][4] = 0.f;
+            }
+        }
+    }
+    std::erase_if(boxes, [](const std::vector<float>& box) { return box[4] == 0.f; });
+}
