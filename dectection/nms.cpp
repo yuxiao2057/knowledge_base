@@ -1,42 +1,54 @@
 #include <vector>
 #include <algorithm>
+#include <utility>
 
-float iou(const std::vector<float>& boxA, const std::vector<float>& boxB)
+double iou(const std::vector<double>& boxA, const std::vector<double>& boxB)
 {
-    // The format of box is [top_left_x, top_left_y, bottom_right_x, bottom_right_y]
-    const float eps = 1e-6;
-    float iou = 0.f;
-    float areaA = (boxA[2] - boxA[0]) * (boxA[3] - boxA[1]);
-    float areaB = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1]);
-    float x1 = std::max(boxA[0], boxB[0]);
-    float y1 = std::max(boxA[1], boxB[1]);
-    float x2 = std::min(boxA[2], boxB[2]);
-    float y2 = std::min(boxA[3], boxB[3]);
-    float w = std::max(0.f, x2 - x1);
-    float h = std::max(0.f, y2 - y1);
-    float inter = w * h;
-    iou = inter / (areaA + areaB - inter + eps);
-    return iou;
+    const double eps = 1e-6;
+    double areaA = (boxA[2] - boxA[0]) * (boxA[3] - boxA[1]);
+    double areaB = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1]);
+    double x1 = std::max(boxA[0], boxB[0]);
+    double y1 = std::max(boxA[1], boxB[1]);
+    double x2 = std::min(boxA[2], boxB[2]);
+    double y2 = std::min(boxA[3], boxB[3]);
+    double w = std::max(0.0, x2 - x1);
+    double h = std::max(0.0, y2 - y1);
+    double inter = w * h;
+    return inter / (areaA + areaB - inter + eps);
 }
 
-void nms(std::vector<std::vector<float>>& boxes, const float iou_threshold)
+void nms(std::vector<std::vector<double>>& boxes, const double iou_threshold)
 {
-    // The format of boxes is [[top_left_x, top_left_y, bottom_right_x, bottom_right_y, score, class_id], ...]
-    // Sorting "score + class_id" is to ensure that the boxes with the same class_id are grouped together and sorted by score
-    std::sort(boxes.begin(), boxes.end(), [](const std::vector<float>& boxA, const std::vector<float>& boxB) { return boxA[4]> boxB[4];});
-    for (int i = 0; i < boxes.size(); ++i)
+    // Sort boxes by score (box[4] contains the score)
+    std::sort(boxes.begin(), boxes.end(), [](const std::vector<double>& boxA, const std::vector<double>& boxB) {
+        return boxA[4] > boxB[4];
+    });
+
+    std::vector<bool> keep(boxes.size(), true);  // Keep track of which boxes to retain
+
+    for (size_t i = 0; i < boxes.size(); ++i)
     {
-        if (boxes[i][4] == 0.f)
-        {
+        if (!keep[i])
             continue;
-        }
-        for (int j = i + 1; j < boxes.size(); ++j)
+
+        for (size_t j = i + 1; j < boxes.size(); ++j)
         {
-            if (iou(boxes[i], boxes[j]) > iou_threshold)
+            if (keep[j] && iou(boxes[i], boxes[j]) > iou_threshold)
             {
-                boxes[j][4] = 0.f;
+                keep[j] = false;  // Mark overlapping box to be discarded
             }
         }
     }
-    std::erase_if(boxes, [](const std::vector<float>& box) { return box[4] == 0.f; });
+
+    // Collect valid boxes
+    std::vector<std::vector<double>> result;
+    for (size_t i = 0; i < boxes.size(); ++i)
+    {
+        if (keep[i])
+        {
+            result.push_back(boxes[i]);
+        }
+    }
+
+    boxes = std::move(result);  // Update original boxes with the filtered result
 }
