@@ -109,3 +109,4 @@ int main()
 		cout<<(pointInPolygon(pt,vs,10)?"在":"不在")<<endl;
 	}
 	return(0);
+}
